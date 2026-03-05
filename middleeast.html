@@ -1,0 +1,1154 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>MIDEAST WATCH — Live Conflict Tracker</title>
+<link href="https://fonts.googleapis.com/css2?family=Bebas+Neue&family=IBM+Plex+Mono:wght@300;400;500;600&family=IBM+Plex+Sans:ital,wght@0,300;0,400;0,600;1,300&display=swap" rel="stylesheet">
+<style>
+  :root {
+    --red: #ff2233;
+    --red-dim: #991122;
+    --amber: #ffaa00;
+    --green: #00ff88;
+    --blue: #0088ff;
+    --bg: #050507;
+    --surface: #0b0d12;
+    --surface2: #111520;
+    --border: rgba(255,255,255,0.06);
+    --border-bright: rgba(255,255,255,0.12);
+    --text: #dde2f0;
+    --muted: #556070;
+    --scan: rgba(255,34,51,0.03);
+  }
+
+  * { margin:0; padding:0; box-sizing:border-box; }
+
+  body {
+    background: var(--bg);
+    color: var(--text);
+    font-family: 'IBM Plex Sans', sans-serif;
+    min-height: 100vh;
+    overflow-x: hidden;
+    cursor: crosshair;
+  }
+
+  /* Scanline overlay */
+  body::before {
+    content: '';
+    position: fixed; inset: 0;
+    background: repeating-linear-gradient(
+      0deg,
+      transparent,
+      transparent 2px,
+      var(--scan) 2px,
+      var(--scan) 4px
+    );
+    pointer-events: none;
+    z-index: 9999;
+  }
+
+  /* Grid background */
+  body::after {
+    content: '';
+    position: fixed; inset: 0;
+    background-image:
+      linear-gradient(rgba(255,34,51,0.03) 1px, transparent 1px),
+      linear-gradient(90deg, rgba(255,34,51,0.03) 1px, transparent 1px);
+    background-size: 48px 48px;
+    pointer-events: none;
+    z-index: 0;
+  }
+
+  /* ── TOPBAR ── */
+  .topbar {
+    position: sticky; top: 0;
+    z-index: 100;
+    background: rgba(5,5,7,0.95);
+    backdrop-filter: blur(12px);
+    border-bottom: 1px solid var(--red-dim);
+    display: flex;
+    align-items: center;
+    padding: 0 24px;
+    height: 52px;
+    gap: 20px;
+  }
+
+  .logo {
+    font-family: 'Bebas Neue', sans-serif;
+    font-size: 26px;
+    letter-spacing: 3px;
+    color: #fff;
+    flex-shrink: 0;
+  }
+
+  .logo span { color: var(--red); }
+
+  .live-pill {
+    display: flex; align-items: center; gap: 6px;
+    background: rgba(255,34,51,0.12);
+    border: 1px solid rgba(255,34,51,0.3);
+    border-radius: 2px;
+    padding: 3px 10px;
+    font-family: 'IBM Plex Mono', monospace;
+    font-size: 10px;
+    letter-spacing: 2px;
+    color: var(--red);
+    text-transform: uppercase;
+    flex-shrink: 0;
+  }
+
+  .live-dot {
+    width: 6px; height: 6px;
+    border-radius: 50%;
+    background: var(--red);
+    animation: blink 1s infinite;
+  }
+
+  @keyframes blink { 0%,100%{opacity:1} 50%{opacity:0.2} }
+
+  .ticker-wrap {
+    flex: 1;
+    overflow: hidden;
+    mask-image: linear-gradient(90deg, transparent, black 10%, black 90%, transparent);
+  }
+
+  .ticker {
+    display: inline-flex;
+    gap: 48px;
+    animation: tickerScroll 60s linear infinite;
+    white-space: nowrap;
+    font-family: 'IBM Plex Mono', monospace;
+    font-size: 11px;
+    letter-spacing: 1px;
+    color: var(--muted);
+  }
+
+  .ticker span { color: var(--amber); }
+
+  @keyframes tickerScroll {
+    from { transform: translateX(0); }
+    to { transform: translateX(-50%); }
+  }
+
+  .clock {
+    font-family: 'IBM Plex Mono', monospace;
+    font-size: 12px;
+    color: var(--green);
+    letter-spacing: 2px;
+    flex-shrink: 0;
+  }
+
+  /* ── LAYOUT ── */
+  .layout {
+    position: relative; z-index: 1;
+    display: grid;
+    grid-template-columns: 300px 1fr 300px;
+    grid-template-rows: auto;
+    min-height: calc(100vh - 52px);
+    gap: 0;
+  }
+
+  /* ── LEFT PANEL ── */
+  .left-panel {
+    border-right: 1px solid var(--border);
+    display: flex;
+    flex-direction: column;
+  }
+
+  /* ── CENTER ── */
+  .center-panel { display: flex; flex-direction: column; }
+
+  /* ── RIGHT PANEL ── */
+  .right-panel {
+    border-left: 1px solid var(--border);
+    display: flex;
+    flex-direction: column;
+  }
+
+  /* ── PANEL HEADER ── */
+  .panel-header {
+    padding: 14px 20px;
+    border-bottom: 1px solid var(--border);
+    display: flex; align-items: center; justify-content: space-between;
+  }
+
+  .panel-title {
+    font-family: 'IBM Plex Mono', monospace;
+    font-size: 10px;
+    letter-spacing: 3px;
+    text-transform: uppercase;
+    color: var(--muted);
+  }
+
+  .panel-badge {
+    font-family: 'IBM Plex Mono', monospace;
+    font-size: 9px;
+    letter-spacing: 1px;
+    padding: 2px 8px;
+    border-radius: 2px;
+  }
+
+  .badge-red { background: rgba(255,34,51,0.15); color: var(--red); border: 1px solid rgba(255,34,51,0.2); }
+  .badge-green { background: rgba(0,255,136,0.1); color: var(--green); border: 1px solid rgba(0,255,136,0.2); }
+  .badge-amber { background: rgba(255,170,0,0.1); color: var(--amber); border: 1px solid rgba(255,170,0,0.2); }
+
+  /* ── MAP SVG ── */
+  .map-container {
+    flex: 1;
+    position: relative;
+    background: var(--surface);
+    overflow: hidden;
+    min-height: 460px;
+  }
+
+  .map-svg {
+    width: 100%;
+    height: 100%;
+  }
+
+  /* Country shapes (simplified SVG paths) */
+  .country { fill: #141820; stroke: #1e2530; stroke-width: 0.8; transition: fill 0.3s; }
+  .country:hover { fill: #1e2838; }
+  .country.conflict { fill: #1a0c0e; stroke: rgba(255,34,51,0.4); }
+  .country.active { fill: #150e08; stroke: rgba(255,170,0,0.5); }
+  .country.neutral { fill: #0d1018; stroke: #1a2030; }
+
+  /* Pulse markers on map */
+  .map-marker {
+    cursor: pointer;
+  }
+
+  .marker-pulse {
+    animation: markerPulse 2s infinite;
+    transform-origin: center;
+  }
+
+  @keyframes markerPulse {
+    0% { r: 6; opacity: 0.8; }
+    50% { r: 14; opacity: 0; }
+    100% { r: 6; opacity: 0; }
+  }
+
+  .marker-core { transition: r 0.2s; }
+  .map-marker:hover .marker-core { r: 9; }
+
+  /* Map labels */
+  .map-label {
+    font-family: 'IBM Plex Mono', monospace;
+    font-size: 8px;
+    fill: rgba(255,255,255,0.35);
+    letter-spacing: 1px;
+    text-transform: uppercase;
+    pointer-events: none;
+  }
+
+  .map-label.conflict-label { fill: rgba(255,80,80,0.7); font-size: 7px; }
+
+  /* Tooltip */
+  .map-tooltip {
+    position: absolute;
+    background: rgba(5,5,7,0.95);
+    border: 1px solid var(--border-bright);
+    padding: 12px 16px;
+    pointer-events: none;
+    opacity: 0;
+    transition: opacity 0.2s;
+    font-family: 'IBM Plex Mono', monospace;
+    font-size: 11px;
+    line-height: 1.8;
+    min-width: 180px;
+    z-index: 50;
+  }
+
+  .map-tooltip.show { opacity: 1; }
+  .tooltip-name { font-size: 13px; color: #fff; font-weight: 600; margin-bottom: 4px; }
+  .tooltip-status { font-size: 10px; letter-spacing: 1px; text-transform: uppercase; margin-bottom: 8px; }
+  .tooltip-stat { color: var(--muted); font-size: 10px; }
+  .tooltip-stat span { color: var(--text); }
+
+  /* ── CONFLICT STATS BAR ── */
+  .stats-bar {
+    display: grid;
+    grid-template-columns: repeat(4, 1fr);
+    gap: 1px;
+    background: var(--border);
+    border-top: 1px solid var(--border);
+    border-bottom: 1px solid var(--border);
+  }
+
+  .stat-cell {
+    background: var(--surface);
+    padding: 14px 20px;
+    text-align: center;
+  }
+
+  .stat-num {
+    font-family: 'Bebas Neue', sans-serif;
+    font-size: 28px;
+    letter-spacing: 1px;
+    line-height: 1;
+    margin-bottom: 2px;
+  }
+
+  .stat-lbl {
+    font-family: 'IBM Plex Mono', monospace;
+    font-size: 9px;
+    letter-spacing: 1.5px;
+    text-transform: uppercase;
+    color: var(--muted);
+  }
+
+  /* ── FEED (left panel) ── */
+  .feed {
+    flex: 1;
+    overflow-y: auto;
+    scrollbar-width: thin;
+    scrollbar-color: var(--border-bright) transparent;
+  }
+
+  .feed-item {
+    padding: 14px 20px;
+    border-bottom: 1px solid var(--border);
+    cursor: pointer;
+    transition: background 0.15s;
+    animation: slideIn 0.4s ease both;
+  }
+
+  .feed-item:hover { background: var(--surface2); }
+
+  @keyframes slideIn {
+    from { opacity: 0; transform: translateX(-8px); }
+    to { opacity: 1; transform: translateX(0); }
+  }
+
+  .feed-time {
+    font-family: 'IBM Plex Mono', monospace;
+    font-size: 9px;
+    letter-spacing: 1px;
+    color: var(--muted);
+    margin-bottom: 5px;
+    display: flex; align-items: center; gap: 6px;
+  }
+
+  .feed-severity {
+    width: 6px; height: 6px; border-radius: 50%;
+    display: inline-block;
+    flex-shrink: 0;
+  }
+
+  .sev-critical { background: var(--red); box-shadow: 0 0 6px var(--red); }
+  .sev-high { background: var(--amber); }
+  .sev-medium { background: var(--blue); }
+  .sev-low { background: var(--muted); }
+
+  .feed-title {
+    font-size: 13px;
+    font-weight: 600;
+    color: var(--text);
+    line-height: 1.4;
+    margin-bottom: 4px;
+  }
+
+  .feed-loc {
+    font-family: 'IBM Plex Mono', monospace;
+    font-size: 10px;
+    color: var(--muted);
+    letter-spacing: 0.5px;
+  }
+
+  /* ── AI ANALYSIS (right panel) ── */
+  .analysis-box {
+    flex: 1;
+    display: flex;
+    flex-direction: column;
+  }
+
+  .ai-prompt-area {
+    padding: 16px;
+    border-bottom: 1px solid var(--border);
+  }
+
+  .ai-input-wrap {
+    display: flex;
+    gap: 8px;
+    align-items: flex-start;
+  }
+
+  .ai-input {
+    flex: 1;
+    background: var(--surface2);
+    border: 1px solid var(--border-bright);
+    color: var(--text);
+    font-family: 'IBM Plex Mono', monospace;
+    font-size: 12px;
+    padding: 10px 12px;
+    resize: none;
+    height: 60px;
+    outline: none;
+    transition: border-color 0.2s;
+  }
+
+  .ai-input:focus { border-color: rgba(255,34,51,0.4); }
+  .ai-input::placeholder { color: var(--muted); }
+
+  .ai-btn {
+    background: var(--red);
+    border: none;
+    color: white;
+    font-family: 'IBM Plex Mono', monospace;
+    font-size: 11px;
+    letter-spacing: 1px;
+    padding: 10px 14px;
+    cursor: pointer;
+    text-transform: uppercase;
+    transition: background 0.2s;
+    height: 60px;
+    flex-shrink: 0;
+  }
+
+  .ai-btn:hover { background: #cc1122; }
+  .ai-btn:disabled { background: var(--muted); cursor: wait; }
+
+  .ai-response {
+    flex: 1;
+    overflow-y: auto;
+    padding: 16px 20px;
+    scrollbar-width: thin;
+    scrollbar-color: var(--border-bright) transparent;
+  }
+
+  .ai-message {
+    margin-bottom: 16px;
+    animation: fadeUp 0.3s ease both;
+  }
+
+  @keyframes fadeUp {
+    from { opacity:0; transform: translateY(6px); }
+    to { opacity:1; transform: translateY(0); }
+  }
+
+  .ai-message.user .msg-label { color: var(--amber); }
+  .ai-message.assistant .msg-label { color: var(--green); }
+
+  .msg-label {
+    font-family: 'IBM Plex Mono', monospace;
+    font-size: 9px;
+    letter-spacing: 2px;
+    text-transform: uppercase;
+    margin-bottom: 6px;
+  }
+
+  .msg-body {
+    font-size: 13px;
+    line-height: 1.7;
+    color: var(--text);
+    border-left: 2px solid var(--border-bright);
+    padding-left: 12px;
+  }
+
+  .msg-body.typing::after {
+    content: '▊';
+    animation: blink 0.7s infinite;
+    color: var(--green);
+  }
+
+  /* ── COUNTRY LIST (right) ── */
+  .country-list { overflow-y: auto; }
+
+  .country-item {
+    display: flex; align-items: center; gap: 12px;
+    padding: 12px 20px;
+    border-bottom: 1px solid var(--border);
+    cursor: pointer;
+    transition: background 0.15s;
+  }
+
+  .country-item:hover { background: var(--surface2); }
+
+  .country-flag {
+    font-size: 20px;
+    flex-shrink: 0;
+  }
+
+  .country-info { flex: 1; min-width: 0; }
+
+  .country-name {
+    font-family: 'IBM Plex Mono', monospace;
+    font-size: 12px;
+    font-weight: 500;
+    color: var(--text);
+    margin-bottom: 2px;
+  }
+
+  .country-status {
+    font-size: 11px;
+    color: var(--muted);
+    font-style: italic;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+  }
+
+  .country-alert {
+    font-family: 'IBM Plex Mono', monospace;
+    font-size: 9px;
+    padding: 2px 7px;
+    border-radius: 2px;
+    flex-shrink: 0;
+    letter-spacing: 0.5px;
+  }
+
+  .alert-war { background: rgba(255,34,51,0.15); color: var(--red); border: 1px solid rgba(255,34,51,0.25); }
+  .alert-tension { background: rgba(255,170,0,0.1); color: var(--amber); border: 1px solid rgba(255,170,0,0.2); }
+  .alert-watch { background: rgba(0,136,255,0.1); color: var(--blue); border: 1px solid rgba(0,136,255,0.2); }
+  .alert-stable { background: rgba(0,255,136,0.06); color: var(--green); border: 1px solid rgba(0,255,136,0.15); }
+
+  /* ── BOTTOM INTEL STRIP ── */
+  .intel-strip {
+    grid-column: 1/-1;
+    border-top: 1px solid var(--border);
+    display: grid;
+    grid-template-columns: repeat(3,1fr);
+    gap: 1px;
+    background: var(--border);
+  }
+
+  .intel-cell {
+    background: var(--surface);
+    padding: 16px 20px;
+  }
+
+  .intel-label {
+    font-family: 'IBM Plex Mono', monospace;
+    font-size: 9px;
+    letter-spacing: 2px;
+    text-transform: uppercase;
+    color: var(--muted);
+    margin-bottom: 8px;
+  }
+
+  .intel-value {
+    font-family: 'Bebas Neue', sans-serif;
+    font-size: 22px;
+    letter-spacing: 1px;
+    line-height: 1;
+    margin-bottom: 2px;
+  }
+
+  .intel-sub {
+    font-size: 12px;
+    color: var(--muted);
+    font-style: italic;
+  }
+
+  /* Refresh btn */
+  .refresh-btn {
+    background: transparent;
+    border: 1px solid var(--border-bright);
+    color: var(--muted);
+    font-family: 'IBM Plex Mono', monospace;
+    font-size: 10px;
+    letter-spacing: 1px;
+    padding: 4px 10px;
+    cursor: pointer;
+    transition: all 0.2s;
+    text-transform: uppercase;
+  }
+
+  .refresh-btn:hover { border-color: var(--red); color: var(--red); }
+
+  .spin { animation: spin 1s linear infinite; display: inline-block; }
+  @keyframes spin { to { transform: rotate(360deg); } }
+
+  /* Loading shimmer */
+  .shimmer {
+    background: linear-gradient(90deg, var(--surface) 25%, var(--surface2) 50%, var(--surface) 75%);
+    background-size: 200% 100%;
+    animation: shimmer 1.5s infinite;
+    border-radius: 2px;
+    height: 12px;
+    margin-bottom: 8px;
+  }
+
+  @keyframes shimmer { from{background-position:200% 0} to{background-position:-200% 0} }
+
+  /* Scrollbar */
+  ::-webkit-scrollbar { width: 4px; }
+  ::-webkit-scrollbar-track { background: transparent; }
+  ::-webkit-scrollbar-thumb { background: var(--border-bright); border-radius: 2px; }
+</style>
+</head>
+<body>
+
+<!-- TOPBAR -->
+<div class="topbar">
+  <div class="logo">MIDEAST<span>WATCH</span></div>
+  <div class="live-pill"><div class="live-dot"></div>LIVE</div>
+  <div class="ticker-wrap">
+    <div class="ticker" id="tickerText">
+      <span>LOADING LIVE UPDATES...</span>
+      &nbsp;&nbsp;·&nbsp;&nbsp;
+      <span>LOADING LIVE UPDATES...</span>
+    </div>
+  </div>
+  <div class="clock" id="clock">--:--:-- UTC</div>
+</div>
+
+<!-- MAIN LAYOUT -->
+<div class="layout">
+
+  <!-- LEFT: Event Feed -->
+  <div class="left-panel">
+    <div class="panel-header">
+      <span class="panel-title">Live Event Feed</span>
+      <button class="refresh-btn" id="refreshFeedBtn" onclick="loadFeed()">↺ Refresh</button>
+    </div>
+    <div class="feed" id="feedContainer">
+      <div style="padding:20px">
+        <div class="shimmer" style="width:60%"></div>
+        <div class="shimmer" style="width:90%"></div>
+        <div class="shimmer" style="width:75%"></div>
+      </div>
+    </div>
+  </div>
+
+  <!-- CENTER: Map + Stats -->
+  <div class="center-panel">
+    <div class="panel-header">
+      <span class="panel-title">Conflict Zone Map — Middle East</span>
+      <span class="panel-badge badge-red">5 ACTIVE CONFLICTS</span>
+    </div>
+
+    <!-- SVG MAP -->
+    <div class="map-container">
+      <svg class="map-svg" viewBox="0 0 700 460" xmlns="http://www.w3.org/2000/svg" id="mapSvg">
+        <defs>
+          <radialGradient id="glowRed" cx="50%" cy="50%" r="50%">
+            <stop offset="0%" stop-color="#ff2233" stop-opacity="0.3"/>
+            <stop offset="100%" stop-color="#ff2233" stop-opacity="0"/>
+          </radialGradient>
+          <radialGradient id="glowAmber" cx="50%" cy="50%" r="50%">
+            <stop offset="0%" stop-color="#ffaa00" stop-opacity="0.2"/>
+            <stop offset="100%" stop-color="#ffaa00" stop-opacity="0"/>
+          </radialGradient>
+        </defs>
+
+        <!-- Ocean background -->
+        <rect width="700" height="460" fill="#080c14"/>
+
+        <!-- TURKEY -->
+        <path class="country neutral" d="M180,80 L320,75 L340,90 L330,110 L300,115 L260,118 L220,115 L185,105 Z" />
+        <text class="map-label" x="255" y="100">TURKEY</text>
+
+        <!-- SYRIA -->
+        <path class="country conflict" d="M265,118 L310,115 L320,130 L315,160 L290,165 L268,155 L260,135 Z" />
+        <text class="map-label conflict-label" x="278" y="145">SYRIA</text>
+
+        <!-- LEBANON -->
+        <path class="country conflict" d="M258,155 L268,155 L272,175 L260,178 L254,168 Z" />
+        <text class="map-label" x="245" y="170">LBN</text>
+
+        <!-- ISRAEL / PALESTINE -->
+        <path class="country conflict" d="M254,175 L265,172 L268,195 L258,205 L250,198 L248,185 Z" />
+        <text class="map-label conflict-label" x="240" y="192">ISR/PAL</text>
+
+        <!-- JORDAN -->
+        <path class="country active" d="M265,172 L295,168 L305,185 L295,215 L268,220 L258,205 L268,195 Z" />
+        <text class="map-label" x="272" y="200">JORDAN</text>
+
+        <!-- IRAQ -->
+        <path class="country conflict" d="M310,115 L370,110 L385,130 L380,175 L355,185 L320,180 L305,160 L315,130 Z" />
+        <text class="map-label conflict-label" x="335" y="155">IRAQ</text>
+
+        <!-- IRAN -->
+        <path class="country conflict" d="M370,80 L460,75 L490,100 L495,150 L475,185 L440,195 L400,185 L385,160 L385,130 L370,110 Z" />
+        <text class="map-label conflict-label" x="420" y="135">IRAN</text>
+
+        <!-- KUWAIT -->
+        <path class="country active" d="M373,180 L390,178 L393,195 L378,198 Z" />
+        <text class="map-label" x="360" y="195">KWT</text>
+
+        <!-- SAUDI ARABIA -->
+        <path class="country active" d="M270,220 L380,215 L415,225 L430,270 L420,320 L380,345 L320,340 L280,310 L260,265 Z" />
+        <text class="map-label" x="320" y="280">SAUDI ARABIA</text>
+
+        <!-- BAHRAIN -->
+        <path class="country active" d="M408,225 L418,222 L420,232 L410,234 Z" />
+
+        <!-- QATAR -->
+        <path class="country active" d="M415,235 L425,232 L428,248 L417,250 Z" />
+        <text class="map-label" x="428" y="245">QAT</text>
+
+        <!-- UAE -->
+        <path class="country neutral" d="M440,245 L480,238 L490,255 L470,275 L445,268 Z" />
+        <text class="map-label" x="452" y="260">UAE</text>
+
+        <!-- OMAN -->
+        <path class="country neutral" d="M475,240 L510,230 L530,260 L520,310 L490,320 L472,295 L470,270 Z" />
+        <text class="map-label" x="488" y="278">OMAN</text>
+
+        <!-- YEMEN -->
+        <path class="country conflict" d="M290,335 L390,340 L420,350 L415,380 L370,395 L305,390 L275,370 L280,350 Z" />
+        <text class="map-label conflict-label" x="330" y="368">YEMEN</text>
+
+        <!-- EGYPT -->
+        <path class="country neutral" d="M130,165 L200,160 L215,175 L210,245 L185,265 L140,260 L118,245 L115,200 Z" />
+        <text class="map-label" x="152" y="215">EGYPT</text>
+
+        <!-- LIBYA -->
+        <path class="country active" d="M60,120 L175,115 L180,165 L115,200 L65,195 L45,165 Z" />
+        <text class="map-label" x="100" y="160">LIBYA</text>
+
+        <!-- SUDAN -->
+        <path class="country neutral" d="M140,262 L210,248 L230,280 L225,340 L195,365 L150,365 L125,335 L120,290 Z" />
+        <text class="map-label" x="158" y="315">SUDAN</text>
+
+        <!-- ETHIOPIA (partial) -->
+        <path class="country neutral" d="M175,370 L235,355 L255,380 L240,420 L190,425 L165,400 Z" />
+        <text class="map-label" x="195" y="395">ETHIOPIA</text>
+
+        <!-- KAZAKHSTAN / Central Asia hint -->
+        <path class="country neutral" d="M460,40 L590,35 L600,70 L560,80 L490,78 L465,65 Z" />
+        <text class="map-label" x="510" y="58">CENTRAL ASIA</text>
+
+        <!-- AFGHANISTAN -->
+        <path class="country active" d="M495,80 L570,72 L590,95 L580,135 L545,145 L505,138 L495,115 Z" />
+        <text class="map-label" x="525" y="112">AFGHAN.</text>
+
+        <!-- PAKISTAN -->
+        <path class="country neutral" d="M545,140 L620,128 L640,160 L625,200 L590,215 L555,200 L540,175 Z" />
+        <text class="map-label" x="575" y="175">PAKISTAN</text>
+
+        <!-- Glow effects for hot zones -->
+        <ellipse cx="430" cy="130" rx="60" ry="50" fill="url(#glowRed)" opacity="0.6"/>
+        <ellipse cx="285" cy="180" rx="30" ry="35" fill="url(#glowRed)" opacity="0.5"/>
+        <ellipse cx="345" cy="155" rx="40" ry="35" fill="url(#glowRed)" opacity="0.4"/>
+        <ellipse cx="340" cy="365" rx="45" ry="25" fill="url(#glowAmber)" opacity="0.5"/>
+
+        <!-- MARKERS -->
+        <!-- Tehran -->
+        <g class="map-marker" data-country="Iran" data-status="ACTIVE STRIKES" data-cas="1,045+" data-type="Air Strikes" onclick="queryCountry('Iran')">
+          <circle cx="430" cy="130" r="18" fill="url(#glowRed)" />
+          <circle class="marker-pulse" cx="430" cy="130" r="6" fill="none" stroke="#ff2233" stroke-width="1.5"/>
+          <circle class="marker-core" cx="430" cy="130" r="6" fill="#ff2233"/>
+          <text class="map-label" x="443" y="128" style="fill:#ff5566;font-size:8px">TEHRAN</text>
+        </g>
+
+        <!-- Gaza -->
+        <g class="map-marker" data-country="Gaza/Israel" data-status="ONGOING CONFLICT" data-cas="50,000+" data-type="Urban Warfare" onclick="queryCountry('Gaza conflict')">
+          <circle cx="250" cy="192" r="14" fill="url(#glowRed)" />
+          <circle class="marker-pulse" cx="250" cy="192" r="5" fill="none" stroke="#ff2233" stroke-width="1.5" style="animation-delay:0.3s"/>
+          <circle class="marker-core" cx="250" cy="192" r="5" fill="#ff2233"/>
+        </g>
+
+        <!-- Beirut -->
+        <g class="map-marker" data-country="Lebanon" data-status="STRIKES ONGOING" data-cas="2,800+" data-type="Air Strikes" onclick="queryCountry('Lebanon Hezbollah conflict')">
+          <circle cx="260" cy="165" r="12" fill="url(#glowRed)" />
+          <circle class="marker-pulse" cx="260" cy="165" r="4" fill="none" stroke="#ff6600" stroke-width="1.5" style="animation-delay:0.6s"/>
+          <circle class="marker-core" cx="260" cy="165" r="4" fill="#ff6600"/>
+        </g>
+
+        <!-- Iraq -->
+        <g class="map-marker" data-country="Iraq" data-status="IRANIAN MISSILES" data-cas="12+" data-type="Missile Strikes" onclick="queryCountry('Iraq US bases attacks')">
+          <circle cx="350" cy="150" r="12" fill="url(#glowAmber)" />
+          <circle class="marker-pulse" cx="350" cy="150" r="4" fill="none" stroke="#ffaa00" stroke-width="1.5" style="animation-delay:0.9s"/>
+          <circle class="marker-core" cx="350" cy="150" r="4" fill="#ffaa00"/>
+        </g>
+
+        <!-- Yemen -->
+        <g class="map-marker" data-country="Yemen" data-status="HOUTHI ATTACKS" data-cas="ongoing" data-type="Drone/Missile" onclick="queryCountry('Yemen Houthi attacks')">
+          <circle cx="340" cy="365" r="12" fill="url(#glowAmber)" />
+          <circle class="marker-pulse" cx="340" cy="365" r="4" fill="none" stroke="#ffaa00" stroke-width="1.5" style="animation-delay:1.2s"/>
+          <circle class="marker-core" cx="340" cy="365" r="4" fill="#ffaa00"/>
+        </g>
+
+        <!-- Bahrain (5th Fleet) -->
+        <g class="map-marker" data-country="Bahrain" data-status="US BASE TARGETED" data-cas="2" data-type="Missile Strike" onclick="queryCountry('Bahrain 5th Fleet attack')">
+          <circle cx="413" cy="228" r="8" fill="url(#glowAmber)" />
+          <circle class="marker-pulse" cx="413" cy="228" r="3" fill="none" stroke="#ffaa00" stroke-width="1" style="animation-delay:1.5s"/>
+          <circle class="marker-core" cx="413" cy="228" r="3" fill="#ffaa00"/>
+          <text class="map-label" x="420" y="226" style="fill:#ffaa00;font-size:7px">5TH FLEET</text>
+        </g>
+
+        <!-- Legend -->
+        <g transform="translate(20, 390)">
+          <rect width="160" height="60" fill="rgba(5,5,7,0.8)" stroke="rgba(255,255,255,0.08)" stroke-width="0.5"/>
+          <circle cx="14" cy="14" r="5" fill="#ff2233"/>
+          <text x="24" y="18" class="map-label" style="fill:#aaa">Active Air/Ground Strikes</text>
+          <circle cx="14" cy="30" r="5" fill="#ffaa00"/>
+          <text x="24" y="34" class="map-label" style="fill:#aaa">Missile/Drone Attacks</text>
+          <circle cx="14" cy="46" r="5" fill="#0088ff"/>
+          <text x="24" y="50" class="map-label" style="fill:#aaa">US/Allied Positions</text>
+        </g>
+      </svg>
+
+      <!-- Tooltip -->
+      <div class="map-tooltip" id="mapTooltip">
+        <div class="tooltip-name" id="ttName"></div>
+        <div class="tooltip-status" id="ttStatus"></div>
+        <div class="tooltip-stat">Casualties: <span id="ttCas"></span></div>
+        <div class="tooltip-stat">Type: <span id="ttType"></span></div>
+        <div class="tooltip-stat" style="margin-top:6px;color:#ff5566;font-size:9px">Click to analyze →</div>
+      </div>
+    </div>
+
+    <!-- STATS BAR -->
+    <div class="stats-bar">
+      <div class="stat-cell">
+        <div class="stat-num" style="color:var(--red)" id="statCasualties">1,045+</div>
+        <div class="stat-lbl">Iran Casualties</div>
+      </div>
+      <div class="stat-cell">
+        <div class="stat-num" style="color:var(--amber)" id="statStrikes">47</div>
+        <div class="stat-lbl">Strike Waves Today</div>
+      </div>
+      <div class="stat-cell">
+        <div class="stat-num" style="color:var(--blue)" id="statBases">27</div>
+        <div class="stat-lbl">US Bases Targeted</div>
+      </div>
+      <div class="stat-cell">
+        <div class="stat-num" style="color:var(--green)" id="statDay">Day 5</div>
+        <div class="stat-lbl">Operation Epic Fury</div>
+      </div>
+    </div>
+  </div>
+
+  <!-- RIGHT: Countries + AI -->
+  <div class="right-panel">
+    <div class="panel-header">
+      <span class="panel-title">Country Status</span>
+      <span class="panel-badge badge-amber">THREAT LEVEL: HIGH</span>
+    </div>
+
+    <div class="country-list" style="max-height:240px; overflow-y:auto; border-bottom:1px solid var(--border)">
+      <div class="country-item" onclick="queryCountry('Iran US Israel war 2026')">
+        <div class="country-flag">🇮🇷</div>
+        <div class="country-info">
+          <div class="country-name">IRAN</div>
+          <div class="country-status">Under US-Israel air strikes, Day 5</div>
+        </div>
+        <div class="country-alert alert-war">WAR</div>
+      </div>
+      <div class="country-item" onclick="queryCountry('Israel Gaza war update')">
+        <div class="country-flag">🇮🇱</div>
+        <div class="country-info">
+          <div class="country-name">ISRAEL</div>
+          <div class="country-status">Joint ops with US, Gaza offensive</div>
+        </div>
+        <div class="country-alert alert-war">WAR</div>
+      </div>
+      <div class="country-item" onclick="queryCountry('Lebanon Hezbollah Israel strikes')">
+        <div class="country-flag">🇱🇧</div>
+        <div class="country-info">
+          <div class="country-name">LEBANON</div>
+          <div class="country-status">Hezbollah sites struck by Israel</div>
+        </div>
+        <div class="country-alert alert-war">WAR</div>
+      </div>
+      <div class="country-item" onclick="queryCountry('Yemen Houthi Red Sea attacks')">
+        <div class="country-flag">🇾🇪</div>
+        <div class="country-info">
+          <div class="country-name">YEMEN</div>
+          <div class="country-status">Houthi drone & missile campaigns</div>
+        </div>
+        <div class="country-alert alert-tension">CONFLICT</div>
+      </div>
+      <div class="country-item" onclick="queryCountry('Iraq US military base attacks Iran')">
+        <div class="country-flag">🇮🇶</div>
+        <div class="country-info">
+          <div class="country-name">IRAQ</div>
+          <div class="country-status">US bases under Iranian proxy fire</div>
+        </div>
+        <div class="country-alert alert-tension">CONFLICT</div>
+      </div>
+      <div class="country-item" onclick="queryCountry('Syria civil war 2026 status')">
+        <div class="country-flag">🇸🇾</div>
+        <div class="country-info">
+          <div class="country-name">SYRIA</div>
+          <div class="country-status">Ongoing instability, Israeli strikes</div>
+        </div>
+        <div class="country-alert alert-tension">TENSION</div>
+      </div>
+      <div class="country-item" onclick="queryCountry('Saudi Arabia Middle East war stance')">
+        <div class="country-flag">🇸🇦</div>
+        <div class="country-info">
+          <div class="country-name">SAUDI ARABIA</div>
+          <div class="country-status">Monitoring, oil markets spiking</div>
+        </div>
+        <div class="country-alert alert-watch">WATCH</div>
+      </div>
+      <div class="country-item" onclick="queryCountry('Qatar Al Udeid base Iran strike')">
+        <div class="country-flag">🇶🇦</div>
+        <div class="country-info">
+          <div class="country-name">QATAR</div>
+          <div class="country-status">Al Udeid struck, flights suspended</div>
+        </div>
+        <div class="country-alert alert-tension">TENSION</div>
+      </div>
+      <div class="country-item" onclick="queryCountry('Egypt Middle East role ceasefire')">
+        <div class="country-flag">🇪🇬</div>
+        <div class="country-info">
+          <div class="country-name">EGYPT</div>
+          <div class="country-status">Mediating, Gaza border pressure</div>
+        </div>
+        <div class="country-alert alert-watch">WATCH</div>
+      </div>
+      <div class="country-item" onclick="queryCountry('Turkey Middle East war NATO stance')">
+        <div class="country-flag">🇹🇷</div>
+        <div class="country-info">
+          <div class="country-name">TURKEY</div>
+          <div class="country-status">Calls for ceasefire, NATO tensions</div>
+        </div>
+        <div class="country-alert alert-watch">WATCH</div>
+      </div>
+    </div>
+
+    <!-- AI ANALYST -->
+    <div class="panel-header" style="border-top: none;">
+      <span class="panel-title">AI War Analyst</span>
+      <span class="panel-badge badge-green">CLAUDE POWERED</span>
+    </div>
+    <div class="analysis-box">
+      <div class="ai-prompt-area">
+        <div class="ai-input-wrap">
+          <textarea class="ai-input" id="aiInput" placeholder="Ask about any conflict, country, or development..."></textarea>
+          <button class="ai-btn" id="aiSendBtn" onclick="sendAIQuery()">ANALYZE</button>
+        </div>
+      </div>
+      <div class="ai-response" id="aiResponse">
+        <div class="ai-message assistant">
+          <div class="msg-label">// ANALYST ONLINE</div>
+          <div class="msg-body">Middle East Conflict Tracker active. Click any country or map marker for instant analysis, or type your question above. I have real-time awareness of the US-Israel-Iran conflict, Gaza, Lebanon, Yemen, and regional developments.</div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- BOTTOM INTEL -->
+  <div class="intel-strip">
+    <div class="intel-cell">
+      <div class="intel-label">Oil Price Impact</div>
+      <div class="intel-value" style="color:var(--red)" id="oilPrice">$118.40</div>
+      <div class="intel-sub">Brent Crude · +12.3% since op start</div>
+    </div>
+    <div class="intel-cell">
+      <div class="intel-label">Strait of Hormuz Status</div>
+      <div class="intel-value" style="color:var(--amber)">RESTRICTED</div>
+      <div class="intel-sub">Iran naval posturing · tankers rerouting</div>
+    </div>
+    <div class="intel-cell">
+      <div class="intel-label">Last AI Update</div>
+      <div class="intel-value" style="color:var(--green);font-size:16px" id="lastUpdate">--:-- UTC</div>
+      <div class="intel-sub">Feed auto-refreshes every 5 minutes</div>
+    </div>
+  </div>
+
+</div>
+
+<!-- TOOLTIP JS -->
+<script>
+// ── Clock ──
+function updateClock() {
+  const now = new Date();
+  const utc = now.toUTCString().split(' ')[4];
+  document.getElementById('clock').textContent = utc + ' UTC';
+  document.getElementById('lastUpdate').textContent = utc + ' UTC';
+}
+setInterval(updateClock, 1000);
+updateClock();
+
+// ── Map tooltip ──
+document.querySelectorAll('.map-marker').forEach(m => {
+  m.addEventListener('mouseenter', (e) => {
+    const tt = document.getElementById('mapTooltip');
+    document.getElementById('ttName').textContent = m.dataset.country;
+    document.getElementById('ttStatus').textContent = m.dataset.status;
+    document.getElementById('ttStatus').style.color =
+      m.dataset.status.includes('STRIKE') || m.dataset.status.includes('CONFLICT') ? '#ff2233' : '#ffaa00';
+    document.getElementById('ttCas').textContent = m.dataset.cas;
+    document.getElementById('ttType').textContent = m.dataset.type;
+
+    const rect = document.querySelector('.map-container').getBoundingClientRect();
+    const mx = e.clientX - rect.left;
+    const my = e.clientY - rect.top;
+    tt.style.left = (mx + 14) + 'px';
+    tt.style.top = (my - 10) + 'px';
+    tt.classList.add('show');
+  });
+  m.addEventListener('mouseleave', () => {
+    document.getElementById('mapTooltip').classList.remove('show');
+  });
+});
+
+// ── AI Query ──
+async function sendAIQuery(prefill) {
+  const input = document.getElementById('aiInput');
+  const btn = document.getElementById('aiSendBtn');
+  const question = prefill || input.value.trim();
+  if (!question) return;
+
+  const container = document.getElementById('aiResponse');
+
+  // User message
+  container.innerHTML += `
+    <div class="ai-message user">
+      <div class="msg-label">// OPERATOR QUERY</div>
+      <div class="msg-body">${question}</div>
+    </div>`;
+
+  // Typing indicator
+  const typingId = 'typing_' + Date.now();
+  container.innerHTML += `
+    <div class="ai-message assistant" id="${typingId}">
+      <div class="msg-label">// ANALYST RESPONSE</div>
+      <div class="msg-body typing" id="${typingId}_body"></div>
+    </div>`;
+
+  container.scrollTop = container.scrollHeight;
+  input.value = '';
+  btn.disabled = true;
+  btn.textContent = '...';
+
+  try {
+    const res = await fetch('https://api.anthropic.com/v1/messages', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        model: 'claude-sonnet-4-20250514',
+        max_tokens: 1000,
+        system: `You are a real-time Middle East conflict analyst for a war tracking dashboard. Today is March 5, 2026. 
+Key context: The US and Israel launched Operation Epic Fury on March 1, 2026 — a joint air war on Iran. Day 5 ongoing.
+- Iran's Supreme Leader Khamenei was killed in opening strikes
+- 1,045+ killed in Iran, internet blackout for 100+ hours
+- Iran retaliating: hit Al Udeid (Qatar), Bahrain 5th Fleet HQ, Iraq bases, Kuwait
+- Girls school in Minab, Iran struck — 158 children killed, White House not ruling out US involvement
+- Hezbollah/Lebanon sites under Israeli strikes
+- Yemen Houthis continuing Red Sea attacks
+- Oil at $118/barrel, Strait of Hormuz restricted
+- Congress debating War Powers Resolution
+- Canada, Australia calling for ceasefire
+
+Be concise, factual, and direct. Use military/intelligence tone. 2-4 short paragraphs max. No bullet points unless listing casualties/locations. Always note uncertainty where applicable.`,
+        messages: [{ role: 'user', content: question }]
+      })
+    });
+
+    const data = await res.json();
+    const text = data.content?.[0]?.text || 'No data available.';
+
+    const bodyEl = document.getElementById(typingId + '_body');
+    if (bodyEl) {
+      bodyEl.classList.remove('typing');
+      bodyEl.textContent = text;
+    }
+  } catch (err) {
+    const bodyEl = document.getElementById(typingId + '_body');
+    if (bodyEl) {
+      bodyEl.classList.remove('typing');
+      bodyEl.textContent = 'Connection error. Check API configuration.';
+      bodyEl.style.color = 'var(--red)';
+    }
+  }
+
+  btn.disabled = false;
+  btn.textContent = 'ANALYZE';
+  container.scrollTop = container.scrollHeight;
+}
+
+function queryCountry(country) {
+  document.getElementById('aiInput').value = `Give me a current status briefing on: ${country}`;
+  sendAIQuery(`Give me a current status briefing on: ${country}`);
+}
+
+// Enter key
+document.getElementById('aiInput').addEventListener('keydown', e => {
+  if (e.key === 'Enter' && !e.shiftKey) {
+    e.preventDefault();
+    sendAIQuery();
+  }
+});
+
+// ── Live Feed (AI generated) ──
+async function loadFeed() {
+  const btn = document.getElementById('refreshFeedBtn');
+  const container = document.getElementById('feedContainer');
+  btn.innerHTML = '<span class="spin">↺</span> Loading';
+  btn.disabled = true;
+
+  container.innerHTML = `<div style="padding:20px">
+    <div class="shimmer" style="width:60%"></div><div class="shimmer" style="width:90%"></div>
+    <div class="shimmer" style="width:75%"></div><div class="shimmer" style="width:80%"></div>
+  </div>`;
+
+  try {
+    const res = await fetch('https://api.anthropic.com/v1/messages', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        model: 'claude-sonnet-4-20250514',
+        max_tokens: 1000,
+        system: 'You are a conflict news feed generator. Return ONLY valid JSON array, no markdown, no explanation. Today: March 5, 2026. US-Israel-Iran war Day 5.',
+        messages: [{
+          role: 'user',
+          content: `Generate 10 realistic breaking news feed items for the Middle East conflict tracker. Return as JSON array:
+[{"time":"HH:MM","severity":"critical|high|medium|low","title":"short headline","location":"City, Country"}]
+Severity: critical=airstrikes/deaths, high=military moves, medium=diplomatic, low=background.
+Mix of: Iran strikes, Gaza, Lebanon, Yemen Houthis, Iraq bases, diplomatic moves, oil/shipping. Be specific with locations.`
+        }]
+      })
+    });
+
+    const data = await res.json();
+    let text = data.content?.[0]?.text || '[]';
+    text = text.replace(/```json|```/g, '').trim();
+    const items = JSON.parse(text);
+
+    container.innerHTML = '';
+    const sevColors = { critical: 'sev-critical', high: 'sev-high', medium: 'sev-medium', low: 'sev-low' };
+
+    items.forEach((item, i) => {
+      const div = document.createElement('div');
+      div.className = 'feed-item';
+      div.style.animationDelay = (i * 0.06) + 's';
+      div.onclick = () => queryCountry(item.title);
+      div.innerHTML = `
+        <div class="feed-time">
+          <span class="feed-severity ${sevColors[item.severity] || 'sev-low'}"></span>
+          ${item.time} UTC · ${item.severity.toUpperCase()}
+        </div>
+        <div class="feed-title">${item.title}</div>
+        <div class="feed-loc">📍 ${item.location}</div>`;
+      container.appendChild(div);
+    });
+
+    // Update ticker
+    const tickerContent = items.map(i => `<span>${i.title}</span> &nbsp;·&nbsp; `).join('');
+    document.getElementById('tickerText').innerHTML = tickerContent + tickerContent;
+
+  } catch (err) {
+    container.innerHTML = `<div style="padding:20px;font-family:'IBM Plex Mono',monospace;font-size:12px;color:var(--muted)">
+      Feed unavailable. Check connection.<br><br>
+      <span style="color:var(--red)">${err.message}</span>
+    </div>`;
+  }
+
+  btn.innerHTML = '↺ Refresh';
+  btn.disabled = false;
+}
+
+// ── Oil price ticker sim ──
+function updateOilPrice() {
+  const base = 118.40;
+  const jitter = (Math.random() - 0.5) * 0.8;
+  const price = (base + jitter).toFixed(2);
+  document.getElementById('oilPrice').textContent = '$' + price;
+}
+setInterval(updateOilPrice, 8000);
+
+// ── Auto-refresh feed every 5 min ──
+loadFeed();
+setInterval(loadFeed, 300000);
+</script>
+</body>
+</html>
